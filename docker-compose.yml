@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # Base de Datos
+  db:
+    image: postgres:15-alpine
+    container_name: innova_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin_innovatech
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-super_secret_password}
+      POSTGRES_DB: innovatech_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin_innovatech -d innovatech_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Microservicio: Backend Despacho
+  backend-despacho:
+    build:
+      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+      dockerfile: Dockerfile
+    container_name: innova_backend_despacho
+    restart: on-failure
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/innovatech_db
+      - SPRING_DATASOURCE_USERNAME=admin_innovatech
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_network
+
+  # Microservicio: Backend Ventas
+  backend-ventas:
+    build:
+      context: ./back-Ventas_SpringBoot/Springboot-API-REST
+      dockerfile: Dockerfile
+    container_name: innova_backend_ventas
+    restart: on-failure
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/innovatech_db
+      - SPRING_DATASOURCE_USERNAME=admin_innovatech
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_network
+
+# Definición de Redes
+networks:
+  backend_network:
+    driver: bridge
+
+# Definición de Volúmenes
+volumes:
+  db_data:
+    driver: local
