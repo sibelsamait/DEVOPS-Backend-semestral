@@ -20,10 +20,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # Microservicio: Backend Despacho
+  # Backend Despacho
   backend-despacho:
     build:
-      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+      context: back-Despachos_SpringBoot\Springboot-API-REST-DESPACHO\
       dockerfile: Dockerfile
     container_name: innova_backend_despacho
     restart: on-failure
@@ -39,10 +39,10 @@ services:
     networks:
       - backend_network
 
-  # Microservicio: Backend Ventas
+  # Backend Ventas
   backend-ventas:
     build:
-      context: ./back-Ventas_SpringBoot/Springboot-API-REST
+      context: back-Ventas_SpringBoot\Springboot-API-REST\
       dockerfile: Dockerfile
     container_name: innova_backend_ventas
     restart: on-failure
