@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Base de Datos MySQL para Despachos
   db:
     image: mysql:8.0
     container_name: p2_db_mysql_despachos
@@ -12,7 +11,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
     ports:
-      - "3307:3306"
+      - "3306:3306" # En la EC2 dedicada podemos usar el puerto nativo 3306
     volumes:
       - db_data_despachos:/var/lib/mysql
     networks:
@@ -23,11 +22,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend Despachos
   backend-despachos:
-    build:
-      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME}/backend-despachos:latest
     container_name: p2_backend_despachos
     restart: on-failure
     ports:
@@ -37,19 +33,16 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
-      - SERVER_PORT=8080
     depends_on:
       db:
         condition: service_healthy
     networks:
       - despachos_network
 
-# Definición de Redes
 networks:
   despachos_network:
     driver: bridge
 
-# Definición de Volúmenes
 volumes:
   db_data_despachos:
     driver: local

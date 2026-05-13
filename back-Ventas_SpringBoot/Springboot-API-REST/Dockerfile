@@ -1,32 +1,43 @@
-# Etapa 1: Build (Compilación)
-FROM eclipse-temurin:17-jdk-alpine AS builder
-WORKDIR /app
+# ==========================================
+# STAGE 1: Construcción (Build Seguro con Maven Nativo)
+# ==========================================
+FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
 
-# Copiamos los archivos de dependencias
-COPY pom.xml mvnw ./
-COPY .mvn .mvn
-RUN chmod +x mvnw && ./mvnw dependency:go-offline
+WORKDIR /build
 
-# Copiamos y compilamos
-COPY src src
-RUN ./mvnw clean package -DskipTests
+# Copiar el archivo de dependencias
+COPY pom.xml .
 
+# Descargar las dependencias en una capa en caché para acelerar futuros builds
+RUN mvn dependency:go-offline -B
 
-# Etapa 2: Run (Ejecución)
+# Copiar el código fuente real
+COPY src ./src
+
+# Compilar el binario omitiendo pruebas para despliegue ágil en CI/CD
+RUN mvn clean package -DskipTests
+
+# ==========================================
+# STAGE 2: Producción (Run Ligero - Mínimo Privilegio)
+# ==========================================
 FROM eclipse-temurin:17-jre-alpine
+
 WORKDIR /app
 
-# Creación de usuario y grupo no root por seguridad
+# Crear usuario y grupo del sistema para cumplir con la pauta de Usuario No Root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copiamos solo el JAR compilado de la etapa anterior y asignamos permisos
-COPY --from=builder --chown=appuser:appgroup /app/target/*.jar app.jar
+# Copiar el JAR compilado desde el Stage 1
+COPY --from=builder /build/target/*.jar app.jar
 
-# Cambiamos al usuario no root
+# Ajustar permisos al usuario seguro
+RUN chown appuser:appgroup app.jar
+
+# Cambiar al usuario sin privilegios
 USER appuser
 
-# Exponemos el puerto estándar de Spring Boot
+# Exponer el puerto interno del contenedor (Spring Boot por defecto usa 8080)
 EXPOSE 8080
 
-# Punto de entrada limpio y optimizado
+# Punto de entrada de la aplicación
 ENTRYPOINT ["java", "-jar", "app.jar"]

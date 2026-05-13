@@ -1,55 +1,21 @@
 version: '3.8'
 
 services:
-  # Base de Datos para Ventas
-  db:
-    image: mysql:8.0
-    container_name: p2_db_mysql_ventas
-    restart: always
-    environment:
-      MYSQL_DATABASE: ${DB_NAME:-p2_db}
-      MYSQL_USER: ${DB_USER:-admin_p2}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
-    ports:
-      - "3308:3306" # Using port 3308 to avoid conflict with the despachos setup
-    volumes:
-      - db_data_ventas:/var/lib/mysql
-    networks:
-      - ventas_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER:-admin_p2}", "-p${DB_PASSWORD:-super_secret_password}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Backend Ventas
   backend-ventas:
-    build:
-      context: ./back-Ventas_SpringBoot/Springboot-API-REST
-      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME}/backend-ventas:latest
     container_name: p2_backend_ventas
     restart: on-failure
     ports:
       - "8082:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=mysql
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      # Apunta dinámicamente a la IP Privada de la EC2 de Despachos inyectada por GitHub Actions
+      - SPRING_DATASOURCE_URL=jdbc:mysql://${DB_HOST_IP}:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
-      - SERVER_PORT=8080
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - ventas_network
 
-# Definición de Redes
 networks:
   ventas_network:
     driver: bridge
-
-# Definición de Volúmenes
-volumes:
-  db_data_ventas:
-    driver: local

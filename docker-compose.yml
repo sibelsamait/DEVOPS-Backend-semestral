@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Base de Datos MySQL
   db:
     image: mysql:8.0
     container_name: p2_db_mysql
@@ -12,7 +11,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
     ports:
-      # Exposing on 3307 para evitar conflictos con bd local MySQL on 3306
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
@@ -24,7 +22,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend Despachos
   backend-despachos:
     build:
       context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
@@ -32,20 +29,18 @@ services:
     container_name: p2_backend_despachos
     restart: on-failure
     ports:
-      - "8081:8080"
+      - "8081:8080" # Expone el puerto 8080 interno al 8081 externo
     environment:
       - SPRING_PROFILES_ACTIVE=mysql
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
-      - SERVER_PORT=8080
     depends_on:
       db:
         condition: service_healthy
     networks:
       - backend_network
 
-  # Backend Ventas
   backend-ventas:
     build:
       context: ./back-Ventas_SpringBoot/Springboot-API-REST
@@ -53,25 +48,22 @@ services:
     container_name: p2_backend_ventas
     restart: on-failure
     ports:
-      - "8082:8080"
+      - "8082:8080" # Expone el puerto 8080 interno al 8082 externo
     environment:
       - SPRING_PROFILES_ACTIVE=mysql
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
-      - SERVER_PORT=8080
     depends_on:
       db:
         condition: service_healthy
     networks:
       - backend_network
 
-# Redes
 networks:
   backend_network:
     driver: bridge
 
-# Volúmenes
 volumes:
   db_data:
     driver: local
