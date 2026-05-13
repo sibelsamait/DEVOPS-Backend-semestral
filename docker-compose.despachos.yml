@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-p2_db}
       MYSQL_USER: ${DB_USER:-admin_p2}
       MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root}
     ports:
       - "3306:3306" # En la EC2 dedicada podemos usar el puerto nativo 3306
     volumes:

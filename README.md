@@ -9,8 +9,8 @@ Este repositorio centraliza la lógica de negocio del proyecto mediante una arqu
 ## Arquitectura y Persistencia
 El stack se orquesta mediante Docker Compose, definiendo tres componentes críticos:
 1. **Base de Datos (MySQL):** Utiliza **Named Volumes** (`db_data`) para garantizar que los datos de ventas y despachos no se pierdan al reiniciar los contenedores.
-2. **Backend Despacho:** Expuesto en el puerto 8081.
-3. **Backend Ventas:** Expuesto en el puerto 8082.
+2. **Backend Despacho:** Expuesto en el puerto 8082.
+3. **Backend Ventas:** Expuesto en el puerto 8083.
 
 ### Configuración de Entorno
 El sistema requiere las siguientes variables de entorno para la conexión a la base de datos (inyectadas vía Docker Compose o GitHub Secrets):
