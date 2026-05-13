@@ -1,32 +1,33 @@
-# Etapa 1: Build (Compilación)
+# STAGE 1: Build
 FROM eclipse-temurin:17-jdk-alpine AS builder
-WORKDIR /app
 
-# Copiamos los archivos de dependencias
-COPY pom.xml mvnw ./
+WORKDIR /build
+
+COPY mvnw .
 COPY .mvn .mvn
-RUN chmod +x mvnw && ./mvnw dependency:go-offline
+COPY pom.xml .
+RUN chmod +x ./mvnw
 
-# Copiamos y compilamos
+# Descargar dependencias
+RUN ./mvnw dependency:go-offline -B
+
 COPY src src
 RUN ./mvnw clean package -DskipTests
 
-
-# Etapa 2: Run (Ejecución)
+# STAGE 2: Producción (Mínimo Privilegio)
 FROM eclipse-temurin:17-jre-alpine
+
 WORKDIR /app
 
-# Creación de usuario y grupo no root por seguridad
+# Creación de usuario no root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copiamos solo el JAR compilado de la etapa anterior y asignamos permisos
-COPY --from=builder --chown=appuser:appgroup /app/target/*.jar app.jar
+COPY --from=builder /build/target/*.jar app.jar
+RUN chown appuser:appgroup app.jar
 
-# Cambiamos al usuario no root
 USER appuser
 
-# Exponemos el puerto estándar de Spring Boot
-EXPOSE 8080
+# Puerto asignado
+EXPOSE 8082
 
-# Punto de entrada limpio y optimizado
 ENTRYPOINT ["java", "-jar", "app.jar"]
