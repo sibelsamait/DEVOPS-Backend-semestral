@@ -1,47 +1,55 @@
 version: '3.8'
 
 services:
-  mysql-db:
+  # Base de Datos MySQL para Despachos
+  db:
     image: mysql:8.0
-    container_name: mysql-proyectodb
+    container_name: p2_db_mysql_despachos
     restart: always
     environment:
-      MYSQL_DATABASE: ${DB_NAME:-proyecto_db}
-      MYSQL_USER: ${DB_USERNAME:-admin}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-admin123}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-admin123}
+      MYSQL_DATABASE: ${DB_NAME:-p2_db}
+      MYSQL_USER: ${DB_USER:-admin_p2}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_despachos:/var/lib/mysql
     networks:
-      - despachos-network
+      - despachos_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER:-admin_p2}", "-p${DB_PASSWORD:-super_secret_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Backend Despachos
   backend-despachos:
-    image: ${DOCKER_USERNAME}/backend-despachos:latest
-    container_name: app-despachos
-    restart: always
+    build:
+      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+      dockerfile: Dockerfile
+    container_name: p2_backend_despachos
+    restart: on-failure
     ports:
-      - "8081:8081"
+      - "8081:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${DB_NAME:-proyecto_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-admin}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-admin123}
-      - SERVER_PORT=8081
-      - DB_ENDPOINT=mysql-db
-      - DB_PORT=3306
-      - DB_NAME=${DB_NAME:-proyecto_db}
-      - DB_USERNAME=${DB_USERNAME:-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-admin123}
+      - SPRING_PROFILES_ACTIVE=mysql
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+      - SERVER_PORT=8080
     depends_on:
-      - mysql-db
+      db:
+        condition: service_healthy
     networks:
-      - despachos-network
+      - despachos_network
 
-volumes:
-  db_data:
-    driver: local
-
+# Definición de Redes
 networks:
-  despachos-network:
+  despachos_network:
     driver: bridge
+
+# Definición de Volúmenes
+volumes:
+  db_data_despachos:
+    driver: local

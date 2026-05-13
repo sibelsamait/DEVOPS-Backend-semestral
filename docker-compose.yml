@@ -1,38 +1,44 @@
 version: '3.8'
 
 services:
-  # Base de Datos
+  # Base de Datos MySQL
   db:
-    image: postgres:15-alpine
-    container_name: innova_db
+    image: mysql:8.0
+    container_name: p2_db_mysql
     restart: always
     environment:
-      POSTGRES_USER: admin_innovatech
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-super_secret_password}
-      POSTGRES_DB: innovatech_db
+      MYSQL_DATABASE: ${DB_NAME:-p2_db}
+      MYSQL_USER: ${DB_USER:-admin_p2}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-super_secret_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-super_secret_root_password}
+    ports:
+      # Exposing on 3307 para evitar conflictos con bd local MySQL on 3306
+      - "3307:3306"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/mysql
     networks:
       - backend_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin_innovatech -d innovatech_db"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER:-admin_p2}", "-p${DB_PASSWORD:-super_secret_password}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Backend Despacho
-  backend-despacho:
+  # Backend Despachos
+  backend-despachos:
     build:
-      context: back-Despachos_SpringBoot\Springboot-API-REST-DESPACHO\
+      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
       dockerfile: Dockerfile
-    container_name: innova_backend_despacho
+    container_name: p2_backend_despachos
     restart: on-failure
     ports:
       - "8081:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/innovatech_db
-      - SPRING_DATASOURCE_USERNAME=admin_innovatech
+      - SPRING_PROFILES_ACTIVE=mysql
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+      - SERVER_PORT=8080
     depends_on:
       db:
         condition: service_healthy
@@ -42,28 +48,30 @@ services:
   # Backend Ventas
   backend-ventas:
     build:
-      context: back-Ventas_SpringBoot\Springboot-API-REST\
+      context: ./back-Ventas_SpringBoot/Springboot-API-REST
       dockerfile: Dockerfile
-    container_name: innova_backend_ventas
+    container_name: p2_backend_ventas
     restart: on-failure
     ports:
       - "8082:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/innovatech_db
-      - SPRING_DATASOURCE_USERNAME=admin_innovatech
+      - SPRING_PROFILES_ACTIVE=mysql
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${DB_NAME:-p2_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+      - SERVER_PORT=8080
     depends_on:
       db:
         condition: service_healthy
     networks:
       - backend_network
 
-# Definición de Redes
+# Redes
 networks:
   backend_network:
     driver: bridge
 
-# Definición de Volúmenes
+# Volúmenes
 volumes:
   db_data:
     driver: local
