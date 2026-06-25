@@ -3,19 +3,24 @@ version: '3.8'
 services:
   backend-ventas:
     image: ${DOCKER_USERNAME}/backend-ventas:latest
-    container_name: p2_backend_ventas
-    restart: on-failure
+    container_name: app-ventas
+    restart: always
     ports:
-      - "8082:8080"
+      - "8082:8082"
     environment:
-      - SPRING_PROFILES_ACTIVE=mysql
-      # OJO: En la máquina de Ventas, usaremos la variable ${DB_HOST_IP}
-      - SPRING_DATASOURCE_URL=jdbc:mysql://${DB_HOST_IP}:3306/${DB_NAME:-p2_db}?useSSL=false&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${DB_USER:-admin_p2}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-super_secret_password}
+      # variable DB_HOST_IP  por el pipeline con la IP Privada de la EC2 de Despachos
+      - SPRING_DATASOURCE_URL=jdbc:mysql://${DB_HOST_IP}:3306/${DB_NAME:-proyecto_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-admin}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-admin123}
+      - SERVER_PORT=8082
+      - DB_ENDPOINT=${DB_HOST_IP}
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-proyecto_db}
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-admin123}
     networks:
-      - ventas_network
+      - ventas-network
 
 networks:
-  ventas_network:
+  ventas-network:
     driver: bridge
