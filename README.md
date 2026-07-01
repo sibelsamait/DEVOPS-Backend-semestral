@@ -9,8 +9,8 @@ Este repositorio centraliza la lógica de negocio del proyecto mediante una arqu
 ## Arquitectura y Persistencia
 El stack se orquesta mediante Docker Compose, definiendo tres componentes críticos:
 1. **Base de Datos (MySQL):** Utiliza **Named Volumes** (`db_data`) para garantizar que los datos de ventas y despachos no se pierdan al reiniciar los contenedores.
-2. **Backend Despacho:** Expuesto en el puerto 8082.
-3. **Backend Ventas:** Expuesto en el puerto 8083.
+2. **Backend Despacho:** Expuesto en el puerto 8081.
+3. **Backend Ventas:** Expuesto en el puerto 8082.
 
 ### Configuración de Entorno
 El sistema requiere las siguientes variables de entorno para la conexión a la base de datos (inyectadas vía Docker Compose o GitHub Secrets):
@@ -29,6 +29,6 @@ El sistema requiere las siguientes variables de entorno para la conexión a la b
 El flujo de entrega continua está definido en `.github/workflows/deploy.yml`:
 1. **Build:** Compilación de ambos JARs.
 2. **Push:** Envío de imágenes a **Amazon ECR**.
-3. **Deploy:** Actualización automática en la instancia **EC2** mediante SSH/SSM.
+3. **Deploy:** Aplicación de manifiestos en **EKS** y reinicio controlado de los deployments.
 
-> **Regla de Oro:** El despliegue a producción solo ocurre tras un push a la rama `deploy`.
+> **Regla de Oro:** El despliegue se dispara con push a `main` o manualmente con `workflow_dispatch`.

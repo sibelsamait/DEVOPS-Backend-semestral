@@ -3,6 +3,7 @@ name: CI/CD Backend Monorepo EKS
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   EKS_CLUSTER_NAME: ep3-devops-cluster 
@@ -55,10 +56,15 @@ jobs:
       run: |
         aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
         
-        # Aplicamos los manifiestos individuales que creamos para Kubernets
+        # Aplicamos secretos, base de datos y luego los backends en Kubernetes
+        kubectl apply -f k8s/secrets.yaml
+        kubectl apply -f k8s/database.yaml
         kubectl apply -f k8s/api-ventas.yaml
         kubectl apply -f k8s/api-despachos.yaml
+
+        # Fijamos la imagen exacta que acabamos de publicar en ECR para evitar depender de latest
+        kubectl set image deployment/api-ventas-deploy ventas=$ECR_REGISTRY/ep3devops/backend-ventas:$IMAGE_TAG
+        kubectl set image deployment/api-despachos-deploy despachos=$ECR_REGISTRY/ep3devops/backend-despachos:$IMAGE_TAG
         
         # Reiniciamos los deployments para que K8s tome la nueva imagen que subimo
-        kubectl rollout restart deployment api-ventas-deploy
-        kubectl rollout restart deployment api-despachos-deploy
+        kubectl rollout restart deployment mysql-db-deploy

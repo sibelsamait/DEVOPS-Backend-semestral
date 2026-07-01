@@ -26,14 +26,14 @@ public class DespachoController {
     @Operation(summary = "Crear un nuevo despacho")
     @PostMapping
     public ResponseEntity<Despacho> crearDespacho(
-            @RequestBody Despacho despacho){
+            @Valid @RequestBody Despacho despacho){
+        Despacho despachoGuardado = despachoService.saveDespacho(despacho);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{idDespacho}")
-                .buildAndExpand(despacho.getIdDespacho())
+            .buildAndExpand(despachoGuardado.getIdDespacho())
                 .toUri();
-        despachoService.saveDespacho(despacho);
-        return ResponseEntity.created(location).body(despacho);
+        return ResponseEntity.created(location).body(despachoGuardado);
     }
 
     @Operation(summary = "Actualizar un despacho existente")

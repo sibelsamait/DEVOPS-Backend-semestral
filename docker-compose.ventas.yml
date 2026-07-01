@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend-ventas:
     image: ${DOCKER_USERNAME}/backend-ventas:latest
