@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: ventas
-        image: 011281349473.dkr.ecr.us-east-1.amazonaws.com/ep3devops/backend-ventas:latest
+        image: 058264296562.dkr.ecr.us-east-1.amazonaws.com/backend-ventas:latest
         ports:
         - containerPort: 8082
         env:
