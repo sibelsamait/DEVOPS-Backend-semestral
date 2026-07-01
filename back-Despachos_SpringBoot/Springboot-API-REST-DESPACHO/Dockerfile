@@ -12,7 +12,7 @@ RUN chmod +x ./mvnw
 RUN ./mvnw dependency:go-offline -B
 
 COPY src src
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests -Dmaven.wagon.http.retryHandler.count=5
 
 # STAGE 2: Producción (Mínimo Privilegio)
 FROM eclipse-temurin:17-jre-alpine
