@@ -28,43 +28,44 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build and Push API Ventas
+    - name: Build and Push Images
+      id: build-push
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Entramos a la carpeta de Ventas según tu estructura real
+        # Ventas
         cd back-Ventas_SpringBoot/Springboot-API-REST
         docker build -t $ECR_REGISTRY/backend-ventas:$IMAGE_TAG .
         docker build -t $ECR_REGISTRY/backend-ventas:latest .
         docker push $ECR_REGISTRY/backend-ventas:$IMAGE_TAG
         docker push $ECR_REGISTRY/backend-ventas:latest
 
-    - name: Build and Push API Despachos
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Volvemos a la raíz y entramos a Despachos
+        # Despachos
         cd ${{ github.workspace }}/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
         docker build -t $ECR_REGISTRY/backend-despachos:$IMAGE_TAG .
         docker build -t $ECR_REGISTRY/backend-despachos:latest .
         docker push $ECR_REGISTRY/backend-despachos:$IMAGE_TAG
         docker push $ECR_REGISTRY/backend-despachos:latest
 
+        # Exportar variables para el siguiente paso
+        echo "REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
+
     - name: Configure Kubectl & Deploy
+      env:
+        IMAGE_TAG: ${{ github.sha }}
       run: |
         aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
         
-        # Aplicamos secretos, base de datos y luego los backends en Kubernetes
         kubectl apply -f k8s/secrets.yaml
         kubectl apply -f k8s/database.yaml
         kubectl apply -f k8s/api-ventas.yaml
         kubectl apply -f k8s/api-despachos.yaml
 
-        # Fijamos la imagen exacta que acabamos de publicar en ECR para evitar depender de latest
-        kubectl set image deployment/api-ventas-deploy ventas=$ECR_REGISTRY/backend-ventas:$IMAGE_TAG
-        kubectl set image deployment/api-despachos-deploy despachos=$ECR_REGISTRY/backend-despachos:$IMAGE_TAG
+        # Usamos las variables exportadas
+        kubectl set image deployment/api-ventas-deploy ventas=${{ env.REGISTRY }}/backend-ventas:$IMAGE_TAG
+        kubectl set image deployment/api-despachos-deploy despachos=${{ env.REGISTRY }}/backend-despachos:$IMAGE_TAG
         
-        # Reiniciamos los deployments para que K8s tome la nueva imagen que subimo
-        kubectl rollout restart deployment mysql-db-deploy
+        # Reiniciar solo los servicios cambiados, no la base de datos
+        kubectl rollout restart deployment api-ventas-deploy
+        kubectl rollout restart deployment api-despachos-deploy
