@@ -1,4 +1,4 @@
-name: CI/CD Backend Monorepo EKS
+name: CI/CD Backend Monorepo ECS Fargate
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  EKS_CLUSTER_NAME: serious-synth-outfit
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-2
+  ECS_CLUSTER: cluster-examen-final
 
 jobs:
   build-and-deploy:
@@ -21,12 +21,25 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Run tests - Ventas
+      working-directory: back-Ventas_SpringBoot/Springboot-API-REST
+      run: mvn -B test
+
+    - name: Run tests - Despachos
+      working-directory: back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+      run: mvn -B test
 
     - name: Build and Push Images
       id: build-push
@@ -36,36 +49,48 @@ jobs:
       run: |
         # Ventas
         cd back-Ventas_SpringBoot/Springboot-API-REST
-        docker build -t $ECR_REGISTRY/backend-ventas:$IMAGE_TAG .
-        docker build -t $ECR_REGISTRY/backend-ventas:latest .
-        docker push $ECR_REGISTRY/backend-ventas:$IMAGE_TAG
-        docker push $ECR_REGISTRY/backend-ventas:latest
+        docker build -t $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-ventas:latest .
+        docker push $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG
+        docker push $ECR_REGISTRY/devops/backend-ventas:latest
+        echo "VENTAS_IMAGE=$ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG" >> $GITHUB_ENV
 
         # Despachos
         cd ${{ github.workspace }}/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-        docker build -t $ECR_REGISTRY/backend-despachos:$IMAGE_TAG .
-        docker build -t $ECR_REGISTRY/backend-despachos:latest .
-        docker push $ECR_REGISTRY/backend-despachos:$IMAGE_TAG
-        docker push $ECR_REGISTRY/backend-despachos:latest
+        docker build -t $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-despachos:latest .
+        docker push $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG
+        docker push $ECR_REGISTRY/devops/backend-despachos:latest
+        echo "DESPACHOS_IMAGE=$ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG" >> $GITHUB_ENV
 
-        # Exportar variables para el siguiente paso
-        echo "REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
+    # --- DESPLIEGUE VENTAS ---
+    - name: Fill in the new image ID in the Amazon ECS task definition for Ventas
+      id: task-def-ventas
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: .aws/task-def-ventas.json
+        container-name: contenedor-ventas
+        image: ${{ env.VENTAS_IMAGE }}
 
-    - name: Configure Kubectl & Deploy
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
-        
-        kubectl apply -f k8s/secrets.yaml
-        kubectl apply -f k8s/database.yaml
-        kubectl apply -f k8s/api-ventas.yaml
-        kubectl apply -f k8s/api-despachos.yaml
+    - name: Deploy Amazon ECS task definition for Ventas
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def-ventas.outputs.task-definition }}
+        service: servicio-ventas
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
 
-        # Usamos las variables exportadas
-        kubectl set image deployment/api-ventas-deploy ventas=${{ env.REGISTRY }}/backend-ventas:$IMAGE_TAG
-        kubectl set image deployment/api-despachos-deploy despachos=${{ env.REGISTRY }}/backend-despachos:$IMAGE_TAG
-        
-        # Reiniciar solo los servicios cambiados, no la base de datos
-        kubectl rollout restart deployment api-ventas-deploy
-        kubectl rollout restart deployment api-despachos-deploy
+    # --- DESPLIEGUE DESPACHOS ---
+    - name: Fill in the new image ID in the Amazon ECS task definition for Despachos
+      id: task-def-despachos
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: .aws/task-def-despachos.json
+        container-name: contenedor-despachos
+        image: ${{ env.DESPACHOS_IMAGE }}
+
+    - name: Deploy Amazon ECS task definition for Despachos
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def-despachos.outputs.task-definition }}
+        service: servicio-despachos
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
