@@ -1,21 +1,23 @@
 services:
   backend-ventas:
-    image: ${DOCKER_USERNAME}/backend-ventas:latest
+    build:
+      context: ./back-Ventas_SpringBoot/Springboot-API-REST
+      dockerfile: Dockerfile
+    image: ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/devops/backend-ventas:${IMAGE_TAG:-latest}
     container_name: app-ventas
     restart: always
     ports:
       - "8082:8082"
     environment:
-      # variable DB_HOST_IP  por el pipeline con la IP Privada de la EC2 de Despachos
-      - SPRING_DATASOURCE_URL=jdbc:mysql://${DB_HOST_IP}:3306/${DB_NAME:-proyecto_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-admin}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-admin123}
-      - SERVER_PORT=8082
-      - DB_ENDPOINT=${DB_HOST_IP}
-      - DB_PORT=3306
-      - DB_NAME=${DB_NAME:-proyecto_db}
-      - DB_USERNAME=${DB_USERNAME:-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-admin123}
+      SERVER_PORT: 8082
+      DB_ENDPOINT: ${DB_ENDPOINT}
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${DB_ENDPOINT}:3306/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
     networks:
       - ventas-network
 

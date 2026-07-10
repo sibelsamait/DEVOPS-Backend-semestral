@@ -1,0 +1,19 @@
+name: AWS Connection Test
+on:
+  push:
+    branches: [ develop ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  aws_login:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::271369142585:role/GitHubActionsWorkflowRole-Backend
+          aws-region: us-east-1
+      - run: aws sts get-caller-identity
