@@ -33,33 +33,40 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Run tests - Ventas
+    - name: Build and Test - Ventas
       working-directory: back-Ventas_SpringBoot/Springboot-API-REST
-      run: mvn -B test
+      # Se rectifica el comando para asegurar la construcción del .jar
+      run: mvn -B clean package
 
-    - name: Run tests - Despachos
+    - name: Build and Test - Despachos
       working-directory: back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-      run: mvn -B test
+      run: mvn -B clean package
 
-    - name: Build and Push Images
-      id: build-push
+    # Se desacoplan los procesos de construcción en pasos atómicos
+    - name: Build and Push Image - Ventas
+      id: build-push-ventas
+      working-directory: back-Ventas_SpringBoot/Springboot-API-REST
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Ventas
-        cd back-Ventas_SpringBoot/Springboot-API-REST
         docker build -t $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-ventas:latest .
         docker push $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-ventas:latest
         echo "VENTAS_IMAGE=$ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG" >> $GITHUB_ENV
 
-        # Despachos
-        cd ${{ github.workspace }}/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    - name: Build and Push Image - Despachos
+      id: build-push-despachos
+      working-directory: back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
         docker build -t $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-despachos:latest .
         docker push $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-despachos:latest
         echo "DESPACHOS_IMAGE=$ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG" >> $GITHUB_ENV
+      
 
     # --- DESPLIEGUE VENTAS ---
     - name: Fill in the new image ID in the Amazon ECS task definition for Ventas
