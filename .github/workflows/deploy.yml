@@ -44,10 +44,12 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Ventas
         docker build -t $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-ventas:latest back-Ventas_SpringBoot/Springboot-API-REST
         docker push $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-ventas:latest
         
+        # Despachos
         docker build -t $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-despachos:latest back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
         docker push $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-despachos:latest
@@ -63,40 +65,25 @@ jobs:
         SECRET_ARN: ${{ secrets.SECRET_ARN }}
         DB_ENDPOINT: ${{ secrets.DB_ENDPOINT }}
         DB_NAME: ${{ secrets.DB_NAME }}
+        VENTAS_IMAGE: ${{ env.VENTAS_IMAGE }}
+        DESPACHOS_IMAGE: ${{ env.DESPACHOS_IMAGE }}
       run: |
-        envsubst < .aws/task-def-ventas.json > .aws/task-def-ventas-resolved.json
-        envsubst < .aws/task-def-despachos.json > .aws/task-def-despachos-resolved.json
-
-    # --- DESPLIEGUE VENTAS ---
-    - name: Render Ventas
-      id: render-ventas
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: .aws/task-def-ventas-resolved.json
-        container-name: contenedor-ventas
-        image: ${{ env.VENTAS_IMAGE }}
+        # Inyecta variables de entorno y reemplaza PLACEHOLDER por la imagen real
+        cat .aws/task-def-ventas.json | envsubst | sed "s|PLACEHOLDER|$VENTAS_IMAGE|g" > .aws/task-def-ventas-resolved.json
+        cat .aws/task-def-despachos.json | envsubst | sed "s|PLACEHOLDER|$DESPACHOS_IMAGE|g" > .aws/task-def-despachos-resolved.json
 
     - name: Deploy Ventas
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.render-ventas.outputs.task-definition }}
+        task-definition: .aws/task-def-ventas-resolved.json
         service: servicio-ventas
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
 
-    # --- DESPLIEGUE DESPACHOS ---
-    - name: Render Despachos
-      id: render-despachos
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: .aws/task-def-despachos-resolved.json
-        container-name: contenedor-despachos
-        image: ${{ env.DESPACHOS_IMAGE }}
-
     - name: Deploy Despachos
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.render-despachos.outputs.task-definition }} # Corregido: usa el output de Despachos
+        task-definition: .aws/task-def-despachos-resolved.json
         service: servicio-despachos
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
