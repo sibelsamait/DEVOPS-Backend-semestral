@@ -33,70 +33,57 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # REEMPLAZAR DESDE AQUÍ:
-    - name: Build and Test - Ventas
-      working-directory: back-Ventas_SpringBoot/Springboot-API-REST
-      run: mvn -B clean package
+    - name: Build and Test
+      run: |
+        mvn -B clean package -f back-Ventas_SpringBoot/Springboot-API-REST/pom.xml
+        mvn -B clean package -f back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO/pom.xml
 
-    - name: Build and Test - Despachos
-      working-directory: back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-      run: mvn -B clean package
-
-    - name: Build and Push Image - Ventas
-      id: build-push-ventas
-      working-directory: back-Ventas_SpringBoot/Springboot-API-REST
+    - name: Build and Push Images
+      id: build-push
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-ventas:latest .
+        # Ventas
+        docker build -t $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-ventas:latest back-Ventas_SpringBoot/Springboot-API-REST
         docker push $ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-ventas:latest
-        echo "VENTAS_IMAGE=$ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG" >> $GITHUB_ENV
-
-    - name: Build and Push Image - Despachos
-      id: build-push-despachos
-      working-directory: back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-despachos:latest .
+        
+        # Despachos
+        docker build -t $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG -t $ECR_REGISTRY/devops/backend-despachos:latest back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
         docker push $ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG
         docker push $ECR_REGISTRY/devops/backend-despachos:latest
+        
+        echo "VENTAS_IMAGE=$ECR_REGISTRY/devops/backend-ventas:$IMAGE_TAG" >> $GITHUB_ENV
         echo "DESPACHOS_IMAGE=$ECR_REGISTRY/devops/backend-despachos:$IMAGE_TAG" >> $GITHUB_ENV
-      
 
-    # --- DESPLIEGUE VENTAS ---
-    - name: Fill in the new image ID in the Amazon ECS task definition for Ventas
-      id: task-def-ventas
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: .aws/task-def-ventas.json
-        container-name: contenedor-ventas
-        image: ${{ env.VENTAS_IMAGE }}
+    - name: Resolve Task Definitions
+      shell: bash
+      env:
+        EXEC_ROLE_ARN: ${{ secrets.EXEC_ROLE_ARN }}
+        TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
+        SECRET_ARN: ${{ secrets.SECRET_ARN }}
+        DB_ENDPOINT: ${{ secrets.DB_ENDPOINT }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        VENTAS_IMAGE: ${{ env.VENTAS_IMAGE }}
+        DESPACHOS_IMAGE: ${{ env.DESPACHOS_IMAGE }}
+      run: |
+        # Inyecta variables de entorno y reemplaza PLACEHOLDER por la imagen real
+        cat .aws/task-def-ventas.json | envsubst | sed "s|PLACEHOLDER|$VENTAS_IMAGE|g" > .aws/task-def-ventas-resolved.json
+        cat .aws/task-def-despachos.json | envsubst | sed "s|PLACEHOLDER|$DESPACHOS_IMAGE|g" > .aws/task-def-despachos-resolved.json
 
-    - name: Deploy Amazon ECS task definition for Ventas
+    - name: Deploy Ventas
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.task-def-ventas.outputs.task-definition }}
+        task-definition: .aws/task-def-ventas-resolved.json
         service: servicio-ventas
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
 
-    # --- DESPLIEGUE DESPACHOS ---
-    - name: Fill in the new image ID in the Amazon ECS task definition for Despachos
-      id: task-def-despachos
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: .aws/task-def-despachos.json
-        container-name: contenedor-despachos
-        image: ${{ env.DESPACHOS_IMAGE }}
-
-    - name: Deploy Amazon ECS task definition for Despachos
+    - name: Deploy Despachos
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.task-def-despachos.outputs.task-definition }}
+        task-definition: .aws/task-def-despachos-resolved.json
         service: servicio-despachos
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
