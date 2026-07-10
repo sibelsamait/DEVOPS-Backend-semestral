@@ -27,6 +27,17 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build and Test
+      run: |
+        mvn -B clean package -f back-Ventas_SpringBoot/Springboot-API-REST/pom.xml
+        mvn -B clean package -f back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO/pom.xml
+
     - name: Build and Push Images
       id: build-push
       env:
@@ -53,23 +64,16 @@ jobs:
         DB_ENDPOINT: ${{ secrets.DB_ENDPOINT }}
         DB_NAME: ${{ secrets.DB_NAME }}
       run: |
-        envsubst < .aws/task-def-ventas.json > .aws/task-def-ventas.json
-        envsubst < .aws/task-def-despachos.json > .aws/task-def-despachos.json
+        envsubst < .aws/task-def-ventas.json > .aws/task-def-ventas-resolved.json
+        envsubst < .aws/task-def-despachos.json > .aws/task-def-despachos-resolved.json
 
+    # --- DESPLIEGUE VENTAS ---
     - name: Render Ventas
       id: render-ventas
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: .aws/task-def-ventas.json
+        task-definition: .aws/task-def-ventas-resolved.json
         container-name: contenedor-ventas
-        image: ${{ env.VENTAS_IMAGE }}
-        
-    - name: Render Despachos
-      id: render-despachos
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: .aws/task-def-despachos.json
-        container-name: contenedor-despachos
         image: ${{ env.VENTAS_IMAGE }}
 
     - name: Deploy Ventas
@@ -80,11 +84,19 @@ jobs:
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
 
+    # --- DESPLIEGUE DESPACHOS ---
+    - name: Render Despachos
+      id: render-despachos
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: .aws/task-def-despachos-resolved.json
+        container-name: contenedor-despachos
+        image: ${{ env.DESPACHOS_IMAGE }}
+
     - name: Deploy Despachos
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
       with:
-        task-definition: ${{ steps.render-ventas.outputs.task-definition }}
+        task-definition: ${{ steps.render-despachos.outputs.task-definition }} # Corregido: usa el output de Despachos
         service: servicio-despachos
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
-
